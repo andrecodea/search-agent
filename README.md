@@ -82,6 +82,28 @@ Absent `category` and `topic` → general top news.
 }
 ```
 
+**Example request:**
+
+```bash
+curl -X POST http://127.0.0.1:8000/news \
+  -H "Content-Type: application/json" \
+  -d '{"category": "tech"}'
+```
+
+```bash
+# With a free-text topic
+curl -X POST http://127.0.0.1:8000/news \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "artificial intelligence", "category": "tech"}'
+```
+
+```bash
+# General top news (no fields required)
+curl -X POST http://127.0.0.1:8000/news \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
 Swagger docs: `http://127.0.0.1:8000/docs`
 
 ## Test
