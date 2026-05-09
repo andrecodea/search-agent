@@ -108,3 +108,30 @@ def favicon() -> Response:
 ```
 
 **Arquivo:** `app/main.py`
+
+---
+
+## BUG-004 — `ConnectionResetError: [WinError 10054]` no log do uvicorn
+
+**Sintoma:** A cada requisição concluída, o uvicorn imprimia no console:
+
+```
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+...
+ConnectionResetError: [WinError 10054] Foi forçado o cancelamento de uma conexão existente pelo host remoto
+```
+
+**Causa:** O `ProactorEventLoop` (padrão no Windows desde Python 3.8) levanta `ConnectionResetError` quando o cliente fecha a conexão antes do servidor terminar de limpar o transporte. No Linux, o equivalente é silenciado pelo `SelectorEventLoop`. O erro é cosmético — não afeta a resposta nem o estado da aplicação.
+
+**Fix:** Trocar para `WindowsSelectorEventLoopPolicy` no Windows antes do event loop ser criado:
+
+```python
+import asyncio, sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+```
+
+O `SelectorEventLoop` trata desconexões do cliente da mesma forma que o Linux — sem exceção no callback de cleanup.
+
+**Arquivo:** `app/main.py`
