@@ -1,12 +1,54 @@
-# AlphaCorp AI Newspaper Delivery AI Agent
+# AlphaCorp AI Newspaper Delivery Agent
 
-FastAPI service that exposes a `POST /news` endpoint backed by a LangChain agent. The agent searches for the latest news from the last 2 days using Tavily, synthesises a plain English summary, and returns up to 5 HTTPS sources. Includes a Streamlit frontend with a news query page and a browsable history viewer.
+FastAPI service backed by a LangChain agent that searches for the latest news from the last 2 days, synthesises a plain English summary, and returns up to 5 HTTPS sources. Includes a Streamlit frontend with a news query page and a browsable history viewer.
+
+---
+
+## Architecture
+
+```
+POST /news
+    │
+    ├─ FastAPI validates NewsRequest (Pydantic v2)
+    │
+    └─ NewspaperAgent.get_news()
+         │
+         ├─ _compute_date_range(utc_offset_minutes)
+         │     Converts UTC now → user's local date to compute
+         │     exact 2-day window (start_date / end_date).
+         │
+         ├─ _build_agent(start_date, end_date)
+         │     primary  = create_agent(gemma-4-31b-it, TavilySearch, response_format=NewsResponse)
+         │     fallback = create_agent(gemma-4-31b-it:free, ...)
+         │     return primary.with_fallbacks([fallback])
+         │
+         └─ agent.ainvoke(user_message)
+               LLM runs 2-3 Tavily queries → discards old results
+               → structured output parsed directly as NewsResponse
+```
+
+**Key design decisions — full rationale in [`docs/DESIGN.md`](docs/DESIGN.md):**
+
+| Decision | Approach |
+|---|---|
+| LLM gateway | OpenRouter (OpenAI-compatible). Swap models via `.env`, no code changes. |
+| Structured output | `response_format=NewsResponse` — LLM returns a Pydantic model directly, no parsing. |
+| Fault tolerance | LangChain Fallback Chain: primary → free-tier fallback, automatic. |
+| Date range | Computed from client's UTC offset per request — no timezone drift. |
+| DI & testability | `NewsAgentProtocol` (duck typing) + FastAPI `Depends` + `FakeNewsAgent` in tests. |
+| Config | `pydantic-settings` reads `.env` once via `@lru_cache`. |
+| History | Flat `.md` files with YAML frontmatter — no database dependency. |
+| Prompt | External `prompts/system.md` with TOON structure, loaded once at startup. |
+| Tracing | LangSmith via env vars — zero code changes to toggle. |
+
+---
 
 ## Setup
 
 ```bash
 cp .env.example .env
 # Fill in TAVILY_API_KEY and OPENROUTER_API_KEY
+
 uv sync                    # backend
 uv sync --group frontend   # Streamlit frontend
 ```
@@ -25,13 +67,14 @@ cd frontend && uv run streamlit run app.py
 
 **`POST /news`**
 
-| Field | Type | Required | Values |
+| Field | Type | Required | Description |
 |---|---|---|---|
+| `topic` | string | No | Free-text search topic |
 | `category` | string | No | `tech`, `economics`, `politics` |
+| `utc_offset_minutes` | int | No | Client UTC offset (auto-sent by frontend) |
 
-Absent `category` → general top news.
+Absent `category` and `topic` → general top news.
 
-Response:
 ```json
 {
   "summary": "Plain English summary...",
@@ -49,7 +92,7 @@ uv run pytest -q
 
 ## LangSmith
 
-Set `LANGSMITH_TRACING=true` and fill in `LANGSMITH_API_KEY` and `LANGSMITH_PROJECT` in `.env` to enable tracing.
+Set `LANGSMITH_TRACING=true` and fill in `LANGSMITH_API_KEY` and `LANGSMITH_PROJECT` in `.env`.
 
 ## Environment Variables
 
