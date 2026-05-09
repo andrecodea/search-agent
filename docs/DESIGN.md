@@ -97,6 +97,44 @@ AI agent that fetches the most important news from the last 2 days on a given to
 
 ---
 
+## ADR-012 — Timezone-Aware Date Range
+
+**Decision:** The frontend detects the client's UTC offset (`datetime.now().astimezone().utcoffset()`) and sends it as `utc_offset_minutes` in the request. The backend converts UTC now to the user's local timezone before computing `start_date` / `end_date`.
+
+**Reason:** Using `datetime.now(UTC).date()` on the server produced date drift late at night — at 23:00 BRT the server was already on the next UTC day, shifting the 2-day window forward by one day. Client-side offset detection is exact for local deployments; cloud deployments would need browser JS for the same effect.
+
+---
+
+## ADR-013 — Markdown Invariant on `summary`
+
+**Decision:** `NewsResponse` validates that `summary` contains at least one blank line (`\n\n`), enforcing multi-paragraph structure.
+
+**Reason:** The frontend renders `summary` via `st.markdown()`. A single-blob paragraph offers no structure for the reader. The blank-line check is the minimal proxy for "formatted markdown" without over-constraining the LLM output. The system prompt instructs explicit paragraph separation to satisfy this invariant.
+
+**Risk:** If the LLM returns a single paragraph despite the prompt, the API raises a 422-style validation error surfaced as HTTP 502. Mitigated by the prompt constraint and fallback chain.
+
+---
+
+## ADR-014 — Latency Optimisations
+
+**Decision:**
+- `max_tokens`: 4096 → 2048
+- `TavilySearch.max_results`: 5 → 3
+- `TavilySearch.search_depth`: `"advanced"` → `"basic"`
+- `model_kwargs={"parallel_tool_calls": True}`
+
+**Reason:** The dominant latency contributor is LLM generation time. Halving `max_tokens` is the highest-leverage cut — a news summary does not need 4096 tokens. `search_depth="basic"` removes deep page crawling, saving 1–3 s per Tavily query. `max_results=3` reduces the context fed to the LLM. `parallel_tool_calls` lets the model dispatch multiple Tavily queries simultaneously when the provider supports it; it is a no-op otherwise.
+
+---
+
+## ADR-015 — Windows `SelectorEventLoop` Policy
+
+**Decision:** On `sys.platform == "win32"`, set `asyncio.WindowsSelectorEventLoopPolicy()` before the event loop is created.
+
+**Reason:** Python's default `ProactorEventLoop` on Windows raises `ConnectionResetError (WinError 10054)` in `_call_connection_lost` whenever a client disconnects before the server finishes tearing down the transport. This is cosmetic — it does not affect correctness — but pollutes uvicorn logs on every request. `SelectorEventLoop` silences it the same way Linux does.
+
+---
+
 ## Design Patterns Summary
 
 | Pattern | Location | Purpose |
@@ -108,6 +146,7 @@ AI agent that fetches the most important news from the last 2 days on a given to
 | Structured Output | `response_format=NewsResponse` | LLM returns Pydantic model directly |
 | Fake Object | `FakeNewsAgent` | Tests without external API calls |
 | External Prompt | `prompts/system.md` | Prompt decoupled from Python code |
+| Markdown Invariant | `NewsResponse.summary` validator | Guarantees structured output |
 
 ---
 
@@ -116,20 +155,20 @@ AI agent that fetches the most important news from the last 2 days on a given to
 ### Request — `POST /news`
 
 ```json
-{ "category": "tech" }
+{ "category": "tech", "topic": "artificial intelligence", "utc_offset_minutes": -180 }
 ```
 
-`category` optional. Valid values: `tech`, `economics`, `politics`. Absent → general news search.
+All fields optional. `category` values: `tech`, `economics`, `politics`. Absent → general news.
 
 ### Response
 
 ```json
 {
-  "summary": "Plain English summary...",
+  "summary": "First paragraph...\n\nSecond paragraph...",
   "sources": ["https://..."]
 }
 ```
 
 **Pydantic invariants:**
-- `summary`: non-empty string
+- `summary`: min 1 char, contains `\n\n` (multi-paragraph markdown)
 - `sources`: max 5 items, all prefixed with `https://`
