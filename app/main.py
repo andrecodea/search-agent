@@ -107,6 +107,9 @@ async def get_news(
     elapsed = time.perf_counter() - start_time
 
     logger.info("Request completed — category: %s  topic: %s  latency: %.2fs", category or "general", topic or "—", elapsed)
-    save_to_history(response, category, topic)
+    try:
+        save_to_history(response, category, topic)
+    except Exception:
+        logger.exception("Failed to save history entry — response already sent to client")
 
     return response

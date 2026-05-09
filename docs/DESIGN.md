@@ -147,6 +147,26 @@ The implementation satisfies 100% of the task spec. Two optional fields were add
 
 ---
 
+## ADR-016 — Whitespace Stripping em `NewsRequest`
+
+**Decision:** `NewsRequest` usa `ConfigDict(str_strip_whitespace=True)` para normalizar campos de texto na entrada.
+
+**Reason:** Sem stripping, um cliente que envie `{"topic": "   "}` passaria uma string de espaços ao agente, que a trataria como tópico válido. O `or None` em `main.py` converte string vazia para `None`, mas não captura strings com apenas espaços. O stripping no modelo garante que `"   "` vire `""` antes da conversão, tornando a normalização completa e implícita — sem validadores extras.
+
+**How:** `model_config = ConfigDict(str_strip_whitespace=True)` em `NewsRequest` (mesma abordagem já usada em `NewsResponse`).
+
+---
+
+## ADR-017 — Isolamento de Falhas em `save_to_history`
+
+**Decision:** A chamada a `save_to_history` no endpoint `POST /news` é isolada em `try/except`, com `logger.exception` em caso de falha.
+
+**Reason:** Persistência de histórico é uma operação secundária — não faz parte do contrato da API com o cliente. Uma falha de disco ou de permissão não deve invalidar uma resposta do agente já computada com sucesso. Sem o isolamento, o cliente receberia HTTP 500 mesmo com a resposta pronta (BUG-005).
+
+**Policy:** Operações de persistência secundária (histórico, auditoria) nunca bloqueiam a resposta principal. Falhas são logadas com `logger.exception` para visibilidade em produção.
+
+---
+
 ## Design Patterns Summary
 
 | Pattern | Location | Purpose |

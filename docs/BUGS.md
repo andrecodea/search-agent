@@ -111,6 +111,27 @@ def favicon() -> Response:
 
 ---
 
+## BUG-005 — `save_to_history` derrubava a resposta em caso de erro de disco
+
+**Sintoma:** Se o disco estivesse cheio ou houvesse erro de permissão em `history/`, o endpoint `POST /news` retornava HTTP 500 ao cliente — mesmo que o agente tivesse respondido com sucesso.
+
+**Causa:** `save_to_history()` era chamada sem tratamento de exceção no endpoint. Qualquer erro de I/O propagava pelo stack do FastAPI e gerava 500, descartando uma resposta válida do agente.
+
+**Fix:** Envolver a chamada em `try/except` com `logger.exception` — a falha é logada, mas a resposta já computada é devolvida normalmente ao cliente.
+
+```python
+try:
+    save_to_history(response, category, topic)
+except Exception:
+    logger.exception("Failed to save history entry — response already sent to client")
+```
+
+**Arquivo:** `app/main.py`
+
+**Padrão estabelecido:** Operações de persistência secundária (histórico, auditoria, cache) nunca devem bloquear a resposta principal. Isole-as em `try/except` e logue a falha — o cliente não deve pagar pelo erro de uma operação que não é crítica para ele.
+
+---
+
 ## BUG-004 — `ConnectionResetError: [WinError 10054]` no log do uvicorn
 
 **Sintoma:** A cada requisição concluída, o uvicorn imprimia no console:

@@ -15,6 +15,8 @@ class Category(StrEnum):
 class NewsRequest(BaseModel):
     """Request body for the POST /news endpoint."""
 
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     topic: str | None = None
     category: Category | None = None
     utc_offset_minutes: int = Field(default=0, ge=-720, le=840)
