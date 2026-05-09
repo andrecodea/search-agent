@@ -147,23 +147,23 @@ The implementation satisfies 100% of the task spec. Two optional fields were add
 
 ---
 
-## ADR-016 — Whitespace Stripping em `NewsRequest`
+## ADR-016 — Whitespace Stripping on `NewsRequest`
 
-**Decision:** `NewsRequest` usa `ConfigDict(str_strip_whitespace=True)` para normalizar campos de texto na entrada.
+**Decision:** `NewsRequest` uses `ConfigDict(str_strip_whitespace=True)` to normalise text fields at the boundary.
 
-**Reason:** Sem stripping, um cliente que envie `{"topic": "   "}` passaria uma string de espaços ao agente, que a trataria como tópico válido. O `or None` em `main.py` converte string vazia para `None`, mas não captura strings com apenas espaços. O stripping no modelo garante que `"   "` vire `""` antes da conversão, tornando a normalização completa e implícita — sem validadores extras.
+**Reason:** Without stripping, a client sending `{"topic": "   "}` would pass a whitespace-only string to the agent, which would treat it as a valid topic. The `or None` conversion in `main.py` handles empty strings but not whitespace-only ones. Stripping at the model level turns `"   "` into `""` before that conversion, making normalisation complete and implicit — no extra validators needed.
 
-**How:** `model_config = ConfigDict(str_strip_whitespace=True)` em `NewsRequest` (mesma abordagem já usada em `NewsResponse`).
+**How:** `model_config = ConfigDict(str_strip_whitespace=True)` on `NewsRequest` — the same approach already used on `NewsResponse`.
 
 ---
 
-## ADR-017 — Isolamento de Falhas em `save_to_history`
+## ADR-017 — Fault Isolation for `save_to_history`
 
-**Decision:** A chamada a `save_to_history` no endpoint `POST /news` é isolada em `try/except`, com `logger.exception` em caso de falha.
+**Decision:** The `save_to_history` call inside `POST /news` is wrapped in `try/except`, with `logger.exception` on failure.
 
-**Reason:** Persistência de histórico é uma operação secundária — não faz parte do contrato da API com o cliente. Uma falha de disco ou de permissão não deve invalidar uma resposta do agente já computada com sucesso. Sem o isolamento, o cliente receberia HTTP 500 mesmo com a resposta pronta (BUG-005).
+**Reason:** History persistence is a secondary operation — it is not part of the API contract with the client. A disk error or permission failure must not invalidate an agent response that was already computed successfully. Without isolation, the client would receive HTTP 500 even with a valid response ready (BUG-005).
 
-**Policy:** Operações de persistência secundária (histórico, auditoria) nunca bloqueiam a resposta principal. Falhas são logadas com `logger.exception` para visibilidade em produção.
+**Policy:** Secondary persistence operations (history, audit) never block the primary response. Failures are logged with `logger.exception` for production visibility.
 
 ---
 

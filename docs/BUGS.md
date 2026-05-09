@@ -111,13 +111,13 @@ def favicon() -> Response:
 
 ---
 
-## BUG-005 — `save_to_history` derrubava a resposta em caso de erro de disco
+## BUG-005 — `save_to_history` could fail the response on disk errors
 
-**Sintoma:** Se o disco estivesse cheio ou houvesse erro de permissão em `history/`, o endpoint `POST /news` retornava HTTP 500 ao cliente — mesmo que o agente tivesse respondido com sucesso.
+**Symptom:** If the disk was full or `history/` had a permission error, `POST /news` returned HTTP 500 to the client — even though the agent had already produced a valid response.
 
-**Causa:** `save_to_history()` era chamada sem tratamento de exceção no endpoint. Qualquer erro de I/O propagava pelo stack do FastAPI e gerava 500, descartando uma resposta válida do agente.
+**Cause:** `save_to_history()` was called without exception handling in the endpoint. Any I/O error propagated through FastAPI's stack and produced a 500, discarding an otherwise successful agent response.
 
-**Fix:** Envolver a chamada em `try/except` com `logger.exception` — a falha é logada, mas a resposta já computada é devolvida normalmente ao cliente.
+**Fix:** Wrap the call in `try/except` with `logger.exception` — the failure is logged, but the already-computed response is returned normally to the client.
 
 ```python
 try:
@@ -126,9 +126,9 @@ except Exception:
     logger.exception("Failed to save history entry — response already sent to client")
 ```
 
-**Arquivo:** `app/main.py`
+**File:** `app/main.py`
 
-**Padrão estabelecido:** Operações de persistência secundária (histórico, auditoria, cache) nunca devem bloquear a resposta principal. Isole-as em `try/except` e logue a falha — o cliente não deve pagar pelo erro de uma operação que não é crítica para ele.
+**Established pattern:** Secondary persistence operations (history, audit, cache) must never block the primary response. Isolate them in `try/except` and log the failure — the client should not pay for an error in an operation that is not part of the API contract.
 
 ---
 
