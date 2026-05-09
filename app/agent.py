@@ -96,7 +96,7 @@ class NewspaperAgent:
                 start_date=start_date,
                 end_date=end_date,
                 search_depth="basic",
-                max_results=5,
+                max_results=3,
             )
         ]
         primary = create_agent(

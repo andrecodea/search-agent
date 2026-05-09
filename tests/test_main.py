@@ -8,7 +8,7 @@ from app.schemas import NewsResponse
 
 def test_save_to_history_creates_markdown_file(tmp_path: Path) -> None:
     response = NewsResponse(
-        summary="Tech news summary.",
+        summary="Tech news summary.\n\nSecond paragraph.",
         sources=["https://example.com/article"],
     )
 
@@ -20,7 +20,7 @@ def test_save_to_history_creates_markdown_file(tmp_path: Path) -> None:
 
 def test_save_to_history_file_contains_frontmatter(tmp_path: Path) -> None:
     response = NewsResponse(
-        summary="Tech news summary.",
+        summary="Tech news summary.\n\nSecond paragraph.",
         sources=["https://example.com/article"],
     )
 
@@ -33,7 +33,7 @@ def test_save_to_history_file_contains_frontmatter(tmp_path: Path) -> None:
 
 def test_save_to_history_file_contains_summary_and_sources(tmp_path: Path) -> None:
     response = NewsResponse(
-        summary="Tech news summary.",
+        summary="Tech news summary.\n\nSecond paragraph.",
         sources=["https://example.com/article"],
     )
 
@@ -46,7 +46,7 @@ def test_save_to_history_file_contains_summary_and_sources(tmp_path: Path) -> No
 
 def test_save_to_history_uses_general_for_none_category(tmp_path: Path) -> None:
     response = NewsResponse(
-        summary="General news.",
+        summary="General news.\n\nSecond paragraph.",
         sources=["https://example.com"],
     )
 
@@ -59,7 +59,7 @@ def test_save_to_history_uses_general_for_none_category(tmp_path: Path) -> None:
 def test_save_to_history_creates_directory_if_missing(tmp_path: Path) -> None:
     history_dir = tmp_path / "nested" / "history"
     response = NewsResponse(
-        summary="News.",
+        summary="News.\n\nSecond paragraph.",
         sources=["https://example.com"],
     )
 

@@ -81,11 +81,13 @@ def test_now_local_is_within_range(offset: int) -> None:
     assert date.fromisoformat(start) <= now_local.date() <= date.fromisoformat(end)
 
 
+_VALID_SUMMARY = "First paragraph about topic A.\n\nSecond paragraph about topic B."
+
 # ── NewsResponse — source invariants ─────────────────────────────────────────
 
 def test_response_accepts_up_to_five_sources() -> None:
     response = NewsResponse(
-        summary="News summary.",
+        summary=_VALID_SUMMARY,
         sources=[f"https://example.com/article-{i}" for i in range(5)],
     )
     assert len(response.sources) == 5
@@ -94,7 +96,7 @@ def test_response_accepts_up_to_five_sources() -> None:
 def test_response_rejects_six_sources() -> None:
     with pytest.raises(Exception):
         NewsResponse(
-            summary="News summary.",
+            summary=_VALID_SUMMARY,
             sources=[f"https://example.com/article-{i}" for i in range(6)],
         )
 
@@ -102,7 +104,7 @@ def test_response_rejects_six_sources() -> None:
 def test_response_rejects_http_source() -> None:
     with pytest.raises(Exception):
         NewsResponse(
-            summary="News summary.",
+            summary=_VALID_SUMMARY,
             sources=["http://example.com/article"],
         )
 
@@ -114,12 +116,24 @@ def test_response_rejects_empty_summary() -> None:
 
 def test_response_accepts_one_source() -> None:
     response = NewsResponse(
-        summary="News summary.",
+        summary=_VALID_SUMMARY,
         sources=["https://example.com/article"],
     )
     assert len(response.sources) == 1
 
 
 def test_response_accepts_zero_sources() -> None:
-    response = NewsResponse(summary="News summary.", sources=[])
+    response = NewsResponse(summary=_VALID_SUMMARY, sources=[])
     assert response.sources == []
+
+
+# ── NewsResponse — markdown invariants ───────────────────────────────────────
+
+def test_response_rejects_summary_without_paragraph_breaks() -> None:
+    with pytest.raises(Exception):
+        NewsResponse(summary="Single paragraph with no blank line.", sources=[])
+
+
+def test_response_accepts_summary_with_paragraph_breaks() -> None:
+    response = NewsResponse(summary=_VALID_SUMMARY, sources=[])
+    assert "\n\n" in response.summary

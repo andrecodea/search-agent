@@ -28,6 +28,14 @@ class NewsResponse(BaseModel):
     summary: Annotated[str, Field(min_length=1)]
     sources: Annotated[list[str], Field(max_length=5)]
 
+    @field_validator("summary")
+    @classmethod
+    def summary_must_have_paragraphs(cls, summary: str) -> str:
+        """Reject summaries that lack paragraph breaks — plain blobs are not valid markdown."""
+        if "\n\n" not in summary:
+            raise ValueError("summary must contain at least two paragraphs separated by a blank line.")
+        return summary
+
     @field_validator("sources")
     @classmethod
     def sources_must_be_https(cls, sources: list[str]) -> list[str]:

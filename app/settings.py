@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         default="google/gemma-4-31b-it:free",
         alias="OPENROUTER_FALLBACK_MODEL",
     )
-    max_tokens: int = Field(default=4096, alias="MAX_TOKENS")
+    max_tokens: int = Field(default=2048, alias="MAX_TOKENS")
 
     # Logging
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")

@@ -6,7 +6,7 @@ def test_fallback_model_default() -> None:
 
 
 def test_max_tokens_default() -> None:
-    assert Settings.model_fields["max_tokens"].default == 4096
+    assert Settings.model_fields["max_tokens"].default == 2048
 
 
 def test_log_level_default() -> None:
