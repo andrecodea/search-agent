@@ -23,6 +23,7 @@ htmlcov/
 
 # Internal docs
 docs/INTERNALS.md
+docs/*.txt
 
 # IDEs
 .vscode/
