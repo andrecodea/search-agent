@@ -1,9 +1,16 @@
+import asyncio
 import logging
 import os
+import sys
 import time
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
+
+# ProactorEventLoop on Windows raises ConnectionResetError on client disconnect;
+# SelectorEventLoop silences it the same way Linux does.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
