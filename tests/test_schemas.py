@@ -23,7 +23,7 @@ def test_news_request_rejects_unknown_category() -> None:
 
 def test_news_response_limits_sources_to_five_https_links() -> None:
     response = NewsResponse(
-        summary="First paragraph.\n\nSecond paragraph.",
+        summary="A short news summary.",
         sources=[
             "https://example.com/1",
             "https://example.com/2",
@@ -39,7 +39,7 @@ def test_news_response_limits_sources_to_five_https_links() -> None:
 def test_news_response_rejects_more_than_five_sources() -> None:
     with pytest.raises(ValidationError):
         NewsResponse(
-            summary="First paragraph.\n\nSecond paragraph.",
+            summary="A short news summary.",
             sources=[
                 "https://example.com/1",
                 "https://example.com/2",
@@ -53,4 +53,4 @@ def test_news_response_rejects_more_than_five_sources() -> None:
 
 def test_news_response_rejects_non_https_sources() -> None:
     with pytest.raises(ValidationError):
-        NewsResponse(summary="First paragraph.\n\nSecond paragraph.", sources=["http://example.com"])
+        NewsResponse(summary="A short news summary.", sources=["http://example.com"])

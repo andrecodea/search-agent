@@ -20,7 +20,7 @@ class FakeNewsAgent:
         self.seen_category = category
         self.seen_topic = topic
         return NewsResponse(
-            summary="Important technology news in simple English.\n\nMore details on the second story.",
+            summary="Important technology news in simple English.",
             sources=["https://example.com/article"],
         )
 
@@ -52,7 +52,7 @@ async def test_post_news_returns_summary_and_sources(client: AsyncClient) -> Non
 
     assert response.status_code == 200
     body = response.json()
-    assert body["summary"] == "Important technology news in simple English.\n\nMore details on the second story."
+    assert body["summary"] == "Important technology news in simple English."
     assert body["sources"] == ["https://example.com/article"]
 
 

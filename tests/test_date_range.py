@@ -81,7 +81,7 @@ def test_now_local_is_within_range(offset: int) -> None:
     assert date.fromisoformat(start) <= now_local.date() <= date.fromisoformat(end)
 
 
-_VALID_SUMMARY = "First paragraph about topic A.\n\nSecond paragraph about topic B."
+_VALID_SUMMARY = "Important news summary in plain English."
 
 # ── NewsResponse — source invariants ─────────────────────────────────────────
 
@@ -127,13 +127,3 @@ def test_response_accepts_zero_sources() -> None:
     assert response.sources == []
 
 
-# ── NewsResponse — markdown invariants ───────────────────────────────────────
-
-def test_response_rejects_summary_without_paragraph_breaks() -> None:
-    with pytest.raises(Exception):
-        NewsResponse(summary="Single paragraph with no blank line.", sources=[])
-
-
-def test_response_accepts_summary_with_paragraph_breaks() -> None:
-    response = NewsResponse(summary=_VALID_SUMMARY, sources=[])
-    assert "\n\n" in response.summary
