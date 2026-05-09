@@ -67,11 +67,13 @@ cd frontend && uv run streamlit run app.py
 
 **`POST /news`**
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `topic` | string | No | Free-text search topic |
-| `category` | string | No | `tech`, `economics`, `politics` |
-| `utc_offset_minutes` | int | No | Client UTC offset (auto-sent by frontend) |
+The endpoint was designed to exactly satisfy the task spec. Two optional fields were added beyond the original requirement — both are backwards-compatible (a plain `{"category": "tech"}` still works as specified):
+
+| Field | Type | Required | In spec | Description |
+|---|---|---|---|---|
+| `category` | string | No | ✅ | `tech`, `economics`, `politics` |
+| `topic` | string | No | ➕ extension | Free-text search topic (combined with category if both present) |
+| `utc_offset_minutes` | int | No | ➕ extension | Client UTC offset in minutes — fixes timezone date drift; auto-sent by the frontend |
 
 Absent `category` and `topic` → general top news.
 

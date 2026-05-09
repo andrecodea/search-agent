@@ -6,6 +6,18 @@ AI agent that fetches the most important news from the last 2 days on a given to
 
 ---
 
+## Spec Compliance & Extensions
+
+The implementation satisfies 100% of the task spec. Two optional fields were added to `NewsRequest` beyond the original requirement. Both are backwards-compatible — a request with only `{"category": "tech"}` behaves exactly as specified.
+
+| Field | Status | Rationale |
+|---|---|---|
+| `category` | ✅ Spec | Enum: `tech`, `economics`, `politics`. Absent → general news. |
+| `topic` | ➕ Extension | Free-text search. Allows users to combine topic + category (e.g. `"AI regulation" + "tech"`). The original spec only accepted `category`; adding `topic` extends coverage without breaking the existing contract. |
+| `utc_offset_minutes` | ➕ Extension | Fix for timezone date drift (BUG-002). The client detects its local UTC offset and sends it so the backend computes `start_date`/`end_date` in the user's timezone rather than server UTC. Without this, users near midnight in UTC-offset timezones would get a misaligned 2-day window. |
+
+---
+
 ## ADR-001 — FastAPI as HTTP Layer
 
 **Decision:** FastAPI with Pydantic v2 for I/O validation.
