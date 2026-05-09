@@ -80,6 +80,7 @@ class NewspaperAgent:
             temperature=0.2,
             max_tokens=self._settings.max_tokens,
             max_retries=2,
+            model_kwargs={"parallel_tool_calls": True},
             default_headers={
                 "HTTP-Referer": "https://alphacorp.ai",
                 "X-Title": "AlphaCorp AI Newspaper Delivery Agent",
@@ -94,7 +95,7 @@ class NewspaperAgent:
                 topic="news",
                 start_date=start_date,
                 end_date=end_date,
-                search_depth="advanced",
+                search_depth="basic",
                 max_results=5,
             )
         ]
