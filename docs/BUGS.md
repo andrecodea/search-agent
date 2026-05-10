@@ -4,7 +4,7 @@
 
 ## BUG-001 — `TypeError: unhashable type: 'Settings'`
 
-**Sintoma:** `POST /news` retornava `500 Internal Server Error` em toda requisição.
+**Symptom:** `POST /news` returned `500 Internal Server Error` on every request.
 
 **Traceback:**
 ```
@@ -13,12 +13,12 @@ File "app/main.py", in get_news_agent
 TypeError: unhashable type: 'Settings'
 ```
 
-**Causa:** `build_news_agent(settings: Settings)` usava `@lru_cache`, que exige que todos os argumentos sejam hashable (usados como chave do cache). `Settings` é uma subclasse de `BaseSettings` (Pydantic), que não implementa `__hash__`.
+**Cause:** `build_news_agent(settings: Settings)` used `@lru_cache`, which requires all arguments to be hashable (used as cache keys). `Settings` is a subclass of `BaseSettings` (Pydantic), which does not implement `__hash__`.
 
-**Fix:** Remover o parâmetro `settings` de `build_news_agent`. A função passa a chamar `get_settings()` internamente — que já é `@lru_cache` e retorna sempre a mesma instância.
+**Fix:** Remove the `settings` parameter from `build_news_agent`. The function now calls `get_settings()` internally — which is already `@lru_cache` and always returns the same instance.
 
 ```python
-# Antes
+# Before
 @lru_cache
 def build_news_agent(settings: Settings) -> NewspaperAgent:
     return NewspaperAgent(settings)
@@ -26,7 +26,7 @@ def build_news_agent(settings: Settings) -> NewspaperAgent:
 def get_news_agent(settings: Settings = Depends(get_settings)) -> NewsAgentProtocol:
     return build_news_agent(settings)
 
-# Depois
+# After
 @lru_cache
 def build_news_agent() -> NewspaperAgent:
     return NewspaperAgent(get_settings())
@@ -35,67 +35,67 @@ def get_news_agent() -> NewsAgentProtocol:
     return build_news_agent()
 ```
 
-**Arquivo:** `app/main.py`
+**File:** `app/main.py`
 
 ---
 
-## BUG-002 — Range de datas do Tavily deslocado por timezone
+## BUG-002 — Tavily date range shifted by timezone
 
-**Sintoma:** Com o horário local próximo da meia-noite (Brasil, UTC-3), o Tavily retornava resultados de um range adiantado em um dia. Por exemplo, às 23:00 BRT do dia 8, o range aparecia como dia 7–9 em vez de dia 6–8.
+**Symptom:** With local time near midnight (Brazil, UTC-3), Tavily returned results from a date range shifted one day ahead. For example, at 23:00 BRT on day 8, the range appeared as day 7–9 instead of day 6–8.
 
-**Causa:** `datetime.now(UTC)` já estava no dia 9 UTC quando o usuário local ainda estava no dia 8. O cálculo `started_at.date()` trunca para a data UTC, não local. Com `timedelta(days=2)`, o `start_date` ficava dia 7 e o `end_date` dia 9 — correto em UTC, errado na perspectiva local.
+**Cause:** `datetime.now(UTC)` was already on day 9 UTC while the local user was still on day 8. Truncating with `.date()` gives the UTC date, not the local one. With `timedelta(days=2)`, `start_date` landed on day 7 and `end_date` on day 9 — correct in UTC, wrong from the user's perspective.
 
-**Fix (definitivo):** O frontend detecta o UTC offset da máquina local (`datetime.now().astimezone().utcoffset()`) e envia como `utc_offset_minutes` no payload. O backend converte `now(UTC)` para o timezone do usuário e computa `start_date`/`end_date` em horário local — sem buffer, sem ambiguidade.
+**Fix:** The frontend detects the local machine's UTC offset (`datetime.now().astimezone().utcoffset()`) and sends it as `utc_offset_minutes` in the payload. The backend converts `now(UTC)` to the user's timezone and computes `start_date`/`end_date` in local time — no buffer, no ambiguity.
 
 ```python
-# Frontend (news.py) — detecta offset uma vez no carregamento da página
+# Frontend (news.py) — detects offset once on page load
 _UTC_OFFSET_MINUTES = int(datetime.now().astimezone().utcoffset().total_seconds() / 60)
-# Ex: Brasil (UTC-3) → -180
+# e.g. Brazil (UTC-3) → -180
 
-# Backend (agent.py) — datas exatas no timezone do usuário
+# Backend (agent.py) — exact dates in the user's timezone
 user_tz = timezone(timedelta(minutes=utc_offset_minutes))
 now_local = datetime.now(UTC).astimezone(user_tz)
-tavily_start = (now_local - timedelta(days=2)).date().isoformat()  # "2026-05-06" em BRT
-tavily_end   = now_local.date().isoformat()                         # "2026-05-08" em BRT
+tavily_start = (now_local - timedelta(days=2)).date().isoformat()  # "2026-05-06" in BRT
+tavily_end   = now_local.date().isoformat()                         # "2026-05-08" in BRT
 ```
 
-Funciona corretamente para deployment local. Para deployment em cloud, o frontend precisaria de detecção via JavaScript (offset do browser, não do servidor).
+Works correctly for local deployments. For cloud deployments, the frontend would need browser-side JavaScript detection (browser offset, not server offset).
 
-**Arquivos:** `app/schemas.py`, `app/agent.py`, `app/main.py`, `frontend/pages/news.py`
+**Files:** `app/schemas.py`, `app/agent.py`, `app/main.py`, `frontend/pages/news.py`
 
-**Validação (`tests/test_date_range.py`):**
+**Validation (`tests/test_date_range.py`):**
 
-A lógica de cálculo foi extraída para `_compute_date_range(utc_offset_minutes, now)` — função pura que aceita um `now` fixo, tornando os testes determinísticos. Bateria de 30 testes cobre:
+The date logic was extracted into `_compute_date_range(utc_offset_minutes, now)` — a pure function that accepts a fixed `now`, making tests deterministic. A suite of 30 tests covers:
 
-| Grupo | Testes | O que valida |
+| Group | Tests | What it validates |
 |---|---|---|
-| Offsets específicos | 6 | UTC, BRT (-180), IST (+330), JST (+540), NZST (+720), midday UTC |
-| Invariante estrutural | 18 (6 offsets × 3) | range = exatamente 2 dias; start < end; `now_local` dentro do range |
-| `NewsResponse` | 6 | aceita ≤5 fontes; rejeita 6+; rejeita `http://`; rejeita summary vazio |
+| Specific offsets | 6 | UTC, BRT (-180), IST (+330), JST (+540), NZST (+720), midday UTC |
+| Structural invariant | 18 (6 offsets × 3) | range = exactly 2 days; start < end; `now_local` within range |
+| `NewsResponse` | 6 | accepts ≤5 sources; rejects 6+; rejects `http://`; rejects empty summary |
 
-Caso concreto que originou o bug — BRT às 23:00 do dia 8, UTC já no dia 9:
+Concrete case that triggered the bug — BRT at 23:00 on day 8, UTC already on day 9:
 
 ```
-_UTC_NOW = datetime(2026, 5, 9, 2, 0, 0, tzinfo=UTC)  # = 23:00 BRT dia 8
+_UTC_NOW = datetime(2026, 5, 9, 2, 0, 0, tzinfo=UTC)  # = 23:00 BRT on day 8
 
-utc_offset_minutes=0    → start=2026-05-07  end=2026-05-09  ✅ correto em UTC
-utc_offset_minutes=-180 → start=2026-05-06  end=2026-05-08  ✅ correto em BRT
+utc_offset_minutes=0    → start=2026-05-07  end=2026-05-09  ✅ correct in UTC
+utc_offset_minutes=-180 → start=2026-05-06  end=2026-05-08  ✅ correct in BRT
 ```
 
 ---
 
-## BUG-003 — `GET /` e `GET /favicon.ico` retornavam 404
+## BUG-003 — `GET /` and `GET /favicon.ico` returned 404
 
-**Sintoma:** O browser gerava dois 404 no log do uvicorn ao abrir `http://localhost:8000` diretamente.
+**Symptom:** The browser generated two 404s in the uvicorn log when opening `http://localhost:8000` directly.
 
 ```
 GET / HTTP/1.1" 404 Not Found
 GET /favicon.ico HTTP/1.1" 404 Not Found
 ```
 
-**Causa:** A API só define `POST /news`. O browser sempre tenta carregar `/` e o favicon automaticamente.
+**Cause:** The API only defines `POST /news`. Browsers always attempt to load `/` and the favicon automatically.
 
-**Fix:** Adicionar duas rotas utilitárias sem aparecer no schema do Swagger:
+**Fix:** Add two utility routes excluded from the Swagger schema:
 
 ```python
 @app.get("/", include_in_schema=False)
@@ -107,7 +107,34 @@ def favicon() -> Response:
     return Response(status_code=204)
 ```
 
-**Arquivo:** `app/main.py`
+**File:** `app/main.py`
+
+---
+
+## BUG-004 — `ConnectionResetError: [WinError 10054]` in uvicorn logs
+
+**Symptom:** After every completed request, uvicorn printed to the console:
+
+```
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+...
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+```
+
+**Cause:** The `ProactorEventLoop` (default on Windows since Python 3.8) raises `ConnectionResetError` when the client closes the connection before the server finishes tearing down the transport. On Linux, the equivalent is silenced by the `SelectorEventLoop`. The error is cosmetic — it does not affect the response or application state.
+
+**Fix:** Switch to `WindowsSelectorEventLoopPolicy` on Windows before the event loop is created:
+
+```python
+import asyncio, sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+```
+
+The `SelectorEventLoop` handles client disconnects the same way Linux does — no exception in the cleanup callback.
+
+**File:** `app/main.py`
 
 ---
 
@@ -129,30 +156,3 @@ except Exception:
 **File:** `app/main.py`
 
 **Established pattern:** Secondary persistence operations (history, audit, cache) must never block the primary response. Isolate them in `try/except` and log the failure — the client should not pay for an error in an operation that is not part of the API contract.
-
----
-
-## BUG-004 — `ConnectionResetError: [WinError 10054]` no log do uvicorn
-
-**Sintoma:** A cada requisição concluída, o uvicorn imprimia no console:
-
-```
-Exception in callback _ProactorBasePipeTransport._call_connection_lost()
-...
-ConnectionResetError: [WinError 10054] Foi forçado o cancelamento de uma conexão existente pelo host remoto
-```
-
-**Causa:** O `ProactorEventLoop` (padrão no Windows desde Python 3.8) levanta `ConnectionResetError` quando o cliente fecha a conexão antes do servidor terminar de limpar o transporte. No Linux, o equivalente é silenciado pelo `SelectorEventLoop`. O erro é cosmético — não afeta a resposta nem o estado da aplicação.
-
-**Fix:** Trocar para `WindowsSelectorEventLoopPolicy` no Windows antes do event loop ser criado:
-
-```python
-import asyncio, sys
-
-if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-```
-
-O `SelectorEventLoop` trata desconexões do cliente da mesma forma que o Linux — sem exceção no callback de cleanup.
-
-**Arquivo:** `app/main.py`
